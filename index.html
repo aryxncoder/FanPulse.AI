@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FanPulse AI</title>
+<style>
+  :root {
+    --bg: #0d1220;
+    --panel: #151c2f;
+    --line: #26304a;
+    --text: #e8ecf6;
+    --muted: #8f9ab5;
+    --accent: #ffb52e;   /* scoreboard amber */
+    --live: #ff4d5e;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+    line-height: 1.55;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 20px 16px 40px; }
+
+  header h1 { font-size: 1.6rem; letter-spacing: .5px; }
+  header h1 span { color: var(--accent); }
+  header p { color: var(--muted); font-size: .95rem; margin-top: 2px; }
+
+  /* Sport switch */
+  .tabs { display: flex; gap: 8px; margin: 18px 0; }
+  .tab {
+    flex: 1; padding: 12px; border-radius: var(--radius);
+    border: 1px solid var(--line); background: var(--panel);
+    color: var(--muted); font-size: 1rem; font-weight: 600; cursor: pointer;
+  }
+  .tab.active { color: #1a1200; background: var(--accent); border-color: var(--accent); }
+
+  /* Scoreboard */
+  .board { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+  .demo-tag {
+    display: inline-block; font-size: .78rem; color: var(--accent);
+    border: 1px dashed var(--accent); border-radius: 6px; padding: 2px 8px; margin-bottom: 14px;
+  }
+  .status { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: .9rem; margin-bottom: 14px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--live); animation: pulse 1.6s infinite; }
+  @keyframes pulse { 50% { opacity: .3; } }
+  @media (prefers-reduced-motion: reduce) { .dot { animation: none; } }
+
+  .teams { display: grid; grid-template-columns: 1fr auto; row-gap: 10px; align-items: center; }
+  .team-name { font-size: 1.1rem; font-weight: 600; }
+  .team-score { font-size: 2rem; font-weight: 800; color: var(--accent); text-align: right; font-variant-numeric: tabular-nums; }
+  .team-sub { color: var(--muted); font-size: .85rem; font-weight: 400; }
+  .summary { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--text); font-size: .95rem; }
+
+  /* Stats */
+  .stats { margin-top: 14px; display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+  .stat { background: var(--bg); border-radius: 10px; padding: 10px; }
+  .stat b { display: block; font-size: 1.15rem; }
+  .stat small { color: var(--muted); }
+
+  /* Explainer */
+  h2 { font-size: 1.1rem; margin: 26px 0 4px; }
+  .hint { color: var(--muted); font-size: .9rem; margin-bottom: 12px; }
+  .buttons { display: grid; gap: 8px; }
+  .ask {
+    text-align: left; padding: 13px 14px; border-radius: var(--radius);
+    border: 1px solid var(--line); background: var(--panel); color: var(--text);
+    font-size: 1rem; cursor: pointer;
+  }
+  .ask:hover { border-color: var(--accent); }
+  .ask.active { border-color: var(--accent); background: #1d2540; }
+  button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  .answer {
+    margin-top: 14px; padding: 16px; border-radius: var(--radius);
+    background: var(--panel); border-left: 4px solid var(--accent); min-height: 90px;
+  }
+  .answer h3 { font-size: 1rem; margin-bottom: 6px; }
+  .answer ul { padding-left: 20px; }
+  .answer li { margin: 4px 0; }
+  .placeholder { color: var(--muted); }
+
+  footer { margin-top: 26px; color: var(--muted); font-size: .8rem; text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>FanPulse <span>AI</span></h1>
+    <p>Understand the match, even if you're new to the sport.</p>
+  </header>
+
+  <!-- 1. Sport selector -->
+  <div class="tabs" role="tablist" aria-label="Choose a sport">
+    <button class="tab active" id="tab-cricket" role="tab" aria-selected="true">🏏 Cricket</button>
+    <button class="tab" id="tab-football" role="tab" aria-selected="false">⚽ Football</button>
+  </div>
+
+  <!-- 2. Scoreboard (filled in by JavaScript) -->
+  <section class="board" aria-label="Scoreboard">
+    <span class="demo-tag">DEMO DATA – not a real or live match</span>
+    <div class="status"><span class="dot"></span><span id="status"></span></div>
+    <div class="teams" id="teams"></div>
+    <p class="summary" id="summary"></p>
+    <div class="stats" id="stats"></div>
+  </section>
+
+  <!-- 3 & 4. AI Fan Explainer -->
+  <h2>AI Fan Explainer</h2>
+  <p class="hint">Tap a question. Answers are pre-written demo responses.</p>
+  <div class="buttons" id="buttons">
+    <button class="ask" data-q="situation">Explain the match situation</button>
+    <button class="ask" data-q="next">What happens next?</button>
+    <button class="ask" data-q="stats">Explain the key stats</button>
+  </div>
+  <div class="answer" id="answer" aria-live="polite">
+    <p class="placeholder">Your explanation will appear here.</p>
+  </div>
+
+  <footer>FanPulse AI · Demo project · All teams, scores and stats are made up.</footer>
+</div>
+
+<script>
+  // ---------- DEMO DATA (edit freely) ----------
+  const MATCHES = {
+    cricket: {
+      status: "LIVE (demo) · T20 · 2nd innings",
+      teams: [
+        { name: "Mumbai Meteors", sub: "Batted first · 20 overs", score: "168/6" },
+        { name: "Chennai Comets", sub: "Chasing · 14.2 overs", score: "121/4" }
+      ],
+      summary: "Chennai Comets need 48 runs from 34 balls to win.",
+      stats: [
+        { label: "Current run rate", value: "8.44" },
+        { label: "Required run rate", value: "8.47" },
+        { label: "Wickets left", value: "6" },
+        { label: "Batter on 52*", value: "Rao (31 balls)" }
+      ],
+      answers: {
+        situation: {
+          title: "Match situation",
+          points: [
+            "Mumbai Meteors batted first and scored 168 runs, losing 6 wickets.",
+            "Chennai Comets are now batting and trying to score MORE than 168 to win.",
+            "They have 121 runs so far, so they need 48 more in 34 balls (about 5.5 overs).",
+            "They still have 6 wickets in hand, which means 6 more batters can come in."
+          ]
+        },
+        next: {
+          title: "What happens next?",
+          points: [
+            "If Chennai keeps scoring around 8–9 runs per over, the game stays very close.",
+            "A wicket now would put pressure on them, because new batters need time to settle.",
+            "A big over (like 15+ runs) would make the chase much easier.",
+            "Final overs usually decide T20 matches, so expect a tense finish."
+          ]
+        },
+        stats: {
+          title: "Key stats explained",
+          points: [
+            "Run rate: average runs scored per over (an over is 6 balls).",
+            "Current 8.44 vs required 8.47: Chennai are scoring almost exactly as fast as they need to. It's evenly balanced.",
+            "Wickets left: more wickets in hand means batters can take bigger risks.",
+            "52* means the batter has 52 runs and is still not out."
+          ]
+        }
+      }
+    },
+    football: {
+      status: "LIVE (demo) · 67' · 2nd half",
+      teams: [
+        { name: "Riverside FC", sub: "Home", score: "2" },
+        { name: "Harbor United", sub: "Away", score: "1" }
+      ],
+      summary: "Riverside FC lead by one goal with about 23 minutes left (plus extra time).",
+      stats: [
+        { label: "Possession", value: "46% – 54%" },
+        { label: "Shots (on target)", value: "9 (4) – 12 (5)" },
+        { label: "Corners", value: "3 – 7" },
+        { label: "Yellow cards", value: "2 – 1" }
+      ],
+      answers: {
+        situation: {
+          title: "Match situation",
+          points: [
+            "Riverside FC (home) are winning 2–1 against Harbor United.",
+            "A football match has 90 minutes plus extra time. We're at minute 67, so about 23 minutes remain.",
+            "Harbor United are behind, so they will probably attack more from now on.",
+            "Riverside are likely to defend and try to hit them on the counter-attack."
+          ]
+        },
+        next: {
+          title: "What happens next?",
+          points: [
+            "Expect Harbor United to push forward, and possibly make attacking substitutions.",
+            "That can leave space behind them, giving Riverside chances to score a third goal.",
+            "A yellow card is a warning. Two yellows to one player means a red card and they must leave the pitch.",
+            "One more goal for Harbor would level the game at 2–2."
+          ]
+        },
+        stats: {
+          title: "Key stats explained",
+          points: [
+            "Possession: how much of the time each team has the ball. Harbor have more (54%).",
+            "Shots on target: shots that would score if not saved. Harbor have 5, Riverside 4.",
+            "Corners: kicks from the corner of the pitch, awarded when the defending team last touches the ball out. Harbor have won 7.",
+            "Having more of the ball doesn't mean winning. Riverside are ahead because they used their chances well."
+          ]
+        }
+      }
+    }
+  };
+
+  // ---------- APP LOGIC ----------
+  let currentSport = "cricket";
+  let currentQuestion = null;
+
+  const el = id => document.getElementById(id);
+
+  function renderMatch() {
+    const m = MATCHES[currentSport];
+    el("status").textContent = m.status;
+    el("summary").textContent = m.summary;
+
+    el("teams").innerHTML = m.teams.map(t =>
+      `<div class="team-name">${t.name}<div class="team-sub">${t.sub}</div></div>
+       <div class="team-score">${t.score}</div>`
+    ).join("");
+
+    el("stats").innerHTML = m.stats.map(s =>
+      `<div class="stat"><b>${s.value}</b><small>${s.label}</small></div>`
+    ).join("");
+  }
+
+  function showAnswer() {
+    const box = el("answer");
+    if (!currentQuestion) {
+      box.innerHTML = '<p class="placeholder">Your explanation will appear here.</p>';
+    } else {
+      const a = MATCHES[currentSport].answers[currentQuestion];
+      box.innerHTML = `<h3>${a.title}</h3><ul>${a.points.map(p => `<li>${p}</li>`).join("")}</ul>`;
+    }
+    document.querySelectorAll(".ask").forEach(b =>
+      b.classList.toggle("active", b.dataset.q === currentQuestion)
+    );
+  }
+
+  function setSport(sport) {
+    currentSport = sport;
+    ["cricket", "football"].forEach(s => {
+      const tab = el("tab-" + s);
+      tab.classList.toggle("active", s === sport);
+      tab.setAttribute("aria-selected", s === sport);
+    });
+    renderMatch();
+    showAnswer(); // keeps the same question, shows the answer for the new sport
+  }
+
+  el("tab-cricket").addEventListener("click", () => setSport("cricket"));
+  el("tab-football").addEventListener("click", () => setSport("football"));
+
+  document.querySelectorAll(".ask").forEach(btn =>
+    btn.addEventListener("click", () => {
+      currentQuestion = btn.dataset.q;
+      showAnswer();
+    })
+  );
+
+  renderMatch();
+</script>
+</body>
+</html>
